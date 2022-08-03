@@ -93,11 +93,18 @@
 #include <linux/sec_ext.h>
 #endif
 #ifdef CONFIG_RKP
+#ifdef CONFIG_KVM
+#error "RKP and KVM cannot coexist!"
+#endif
 #include <linux/vmm.h>
 #include <linux/rkp.h> 
 #endif //CONFIG_RKP
 #ifdef CONFIG_RELOCATABLE_KERNEL
 #include <linux/memblock.h>
+#endif
+
+#ifdef CONFIG_KVM
+#include <linux/arm.h>
 #endif
 static int kernel_init(void *);
 
@@ -679,9 +686,9 @@ asmlinkage __visible void __init start_kernel(void)
 	build_all_zonelists(NULL, NULL);
 	page_alloc_init();
 
+#if !defined(CONFIG_SAMSUNG_PRODUCT_SHIP)
 	pr_notice("Kernel command line: %s\n", boot_command_line);
-	/* parameters may set static keys */
-	jump_label_init();
+#endif
 	parse_early_param();
 	after_dashes = parse_args("Booting kernel",
 				  static_command_line, __start___param,
@@ -690,6 +697,8 @@ asmlinkage __visible void __init start_kernel(void)
 	if (!IS_ERR_OR_NULL(after_dashes))
 		parse_args("Setting init args", after_dashes, NULL, 0, -1, -1,
 			   NULL, set_init_arg);
+
+	jump_label_init();
 
 	/*
 	 * These use large bootmem allocations and must precede
@@ -704,6 +713,9 @@ asmlinkage __visible void __init start_kernel(void)
 	rkp_reserve_mem();
 #endif
 	mm_init();
+#ifdef CONFIG_KVM
+    preinit_hyp_mode();
+#endif
 #ifdef CONFIG_RKP
 	vmm_init();
 	rkp_init();
